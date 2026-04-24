@@ -34,6 +34,7 @@ func main() {
 
 func checkCmd() *cobra.Command {
 	var noColor bool
+	var skipDirs []string
 
 	cmd := &cobra.Command{
 		Use:   "check [path]",
@@ -50,6 +51,8 @@ func checkCmd() *cobra.Command {
 				color.NoColor = true
 			}
 
+			analyzer.ExtraSkipDirs = skipDirs
+
 			pm, err := analyzer.Analyze(path)
 			if err != nil {
 				return fmt.Errorf("analysis failed: %w", err)
@@ -61,6 +64,7 @@ func checkCmd() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&noColor, "no-color", false, "Disable colored output")
+	cmd.Flags().StringSliceVar(&skipDirs, "skip", nil, "Additional directories to skip (comma-separated)")
 	return cmd
 }
 
