@@ -1,0 +1,9 @@
+name: pulse
+
+domain: pulse.stackramp.io
+
+frontend:
+  framework: vite
+  dir: website
+
+database: false

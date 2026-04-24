@@ -1,0 +1,7 @@
+name: pulse
+
+frontend:
+  framework: vite
+  dir: website
+
+database: false
