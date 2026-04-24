@@ -427,22 +427,20 @@ function Install() {
         <p className="section-label">Installation</p>
         <h2 className="section-title">Up in 30 seconds</h2>
 
-        <div className="code-block">
-          <p className="comment"># Install Pulse</p>
-          <p className="cmd-line">go install github.com/bobbydeveaux/pulse/app/cmd/pulse@latest</p>
-          <p>&nbsp;</p>
-          <p className="comment"># Analyse your codebase</p>
-          <p className="cmd-line">pulse check ./src</p>
-          <p>&nbsp;</p>
-          <p className="comment"># See trends over your last 50 commits</p>
-          <p className="cmd-line">pulse trend --last 50</p>
-          <p>&nbsp;</p>
-          <p className="comment"># Check complexity diff for staged changes</p>
-          <p className="cmd-line">pulse diff --staged</p>
-          <p>&nbsp;</p>
-          <p className="comment"># Set quality gates (fail if avg CCN &gt; 15)</p>
-          <p className="cmd-line">pulse gate --max-ccn 15 --max-duplication 5</p>
-        </div>
+        <pre className="code-block">{`# Install Pulse
+go install github.com/bobbydeveaux/pulse/app/cmd/pulse@latest
+
+# Analyse your codebase
+pulse check ./src
+
+# See trends over your last 50 commits
+pulse trend --last 50
+
+# Check complexity diff for staged changes
+pulse diff --staged
+
+# Set quality gates (fail if avg CCN > 15)
+pulse gate --max-ccn 15 --max-duplication 5`}</pre>
       </div>
     </section>
   );
@@ -459,33 +457,25 @@ function GithubAction() {
           Run Pulse on every pull request. Get complexity diffs and quality gates in your CI pipeline.
         </p>
 
-        <div className="code-block">
-          <p className="comment"># .github/workflows/quality.yml</p>
-          <p className="cmd-line">name: Code Quality</p>
-          <p className="cmd-line">on: [pull_request]</p>
-          <p>&nbsp;</p>
-          <p className="cmd-line">jobs:</p>
-          <p className="cmd-line">  pulse:</p>
-          <p className="cmd-line">    runs-on: ubuntu-latest</p>
-          <p className="cmd-line">    steps:</p>
-          <p className="cmd-line">      - uses: actions/checkout@v4</p>
-          <p className="cmd-line">        with:</p>
-          <p className="cmd-line">          fetch-depth: 0</p>
-          <p className="cmd-line">      - uses: bobbydeveaux/pulse@main</p>
-          <p className="cmd-line">        with:</p>
-          <p className="cmd-line">
-            {'          '}
-            <span className="comment"># Post complexity diff as PR comment</span>
-          </p>
-          <p className="cmd-line">          comment: true</p>
-          <p className="cmd-line">
-            {'          '}
-            <span className="comment"># Fail if thresholds exceeded</span>
-          </p>
-          <p className="cmd-line">          max_ccn: 15</p>
-          <p className="cmd-line">          max_cognitive: 20</p>
-          <p className="cmd-line">          max_duplication: 5</p>
-        </div>
+        <pre className="code-block">{`# .github/workflows/quality.yml
+name: Code Quality
+on: [pull_request]
+
+jobs:
+  pulse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: bobbydeveaux/pulse@main
+        with:
+          # Post complexity diff as PR comment
+          comment: true
+          # Fail if thresholds exceeded
+          max_ccn: 15
+          max_cognitive: 20
+          max_duplication: 5`}</pre>
       </div>
     </section>
   );
