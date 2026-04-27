@@ -1,0 +1,39 @@
+name: "Pulse Code Quality Gate"
+description: "Analyze code quality — cyclomatic/cognitive complexity, duplication, and maintainability index with configurable gates"
+author: "Bobby DeVeaux"
+
+branding:
+  icon: "activity"
+  color: "green"
+
+inputs:
+  max_ccn:
+    description: "Maximum cyclomatic complexity per function (0 = no limit)"
+    required: false
+    default: "15"
+  max_cognitive:
+    description: "Maximum cognitive complexity per function (0 = no limit)"
+    required: false
+    default: "20"
+  max_duplication:
+    description: "Maximum duplication percentage (0 = no limit)"
+    required: false
+    default: "5"
+  min_maintainability:
+    description: "Minimum maintainability index (0 = no limit)"
+    required: false
+    default: "40"
+  fail_on_gate:
+    description: "Fail the workflow if quality gates are breached"
+    required: false
+    default: "true"
+
+runs:
+  using: "docker"
+  image: "Dockerfile"
+  env:
+    INPUT_MAX_CCN: ${{ inputs.max_ccn }}
+    INPUT_MAX_COGNITIVE: ${{ inputs.max_cognitive }}
+    INPUT_MAX_DUPLICATION: ${{ inputs.max_duplication }}
+    INPUT_MIN_MAINTAINABILITY: ${{ inputs.min_maintainability }}
+    INPUT_FAIL_ON_GATE: ${{ inputs.fail_on_gate }}
