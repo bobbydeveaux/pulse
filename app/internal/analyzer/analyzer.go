@@ -2,6 +2,7 @@ package analyzer
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -82,6 +83,76 @@ func isGenerated(path string) bool {
 
 // ExtraSkipDirs allows callers to add additional directories to skip.
 var ExtraSkipDirs []string
+
+// ignorePattern represents a single pattern from a .pulseignore file.
+type ignorePattern struct {
+	pattern string
+	isDir   bool // true if the pattern ends with /
+}
+
+// loadPulseignore reads a .pulseignore file and returns parsed patterns.
+// Returns nil (no error) if the file does not exist.
+func loadPulseignore(root string) ([]ignorePattern, error) {
+	path := filepath.Join(root, ".pulseignore")
+	f, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	defer f.Close()
+
+	var patterns []ignorePattern
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasSuffix(line, "/") {
+			patterns = append(patterns, ignorePattern{
+				pattern: strings.TrimSuffix(line, "/"),
+				isDir:   true,
+			})
+		} else {
+			patterns = append(patterns, ignorePattern{
+				pattern: line,
+				isDir:   false,
+			})
+		}
+	}
+	return patterns, scanner.Err()
+}
+
+// matchesIgnorePattern checks whether a given path (relative to root) matches
+// any of the parsed ignore patterns.
+func matchesIgnorePattern(relPath string, info os.FileInfo, patterns []ignorePattern) bool {
+	base := filepath.Base(relPath)
+	for _, p := range patterns {
+		if p.isDir {
+			// Directory pattern: match if the relative path starts with the
+			// directory name (i.e., the file is inside that directory) or if
+			// we are looking at the directory entry itself.
+			if info.IsDir() && (relPath == p.pattern || strings.HasPrefix(relPath, p.pattern+string(filepath.Separator))) {
+				return true
+			}
+			if !info.IsDir() && (strings.HasPrefix(relPath, p.pattern+string(filepath.Separator))) {
+				return true
+			}
+		} else {
+			// Glob/file pattern: match against the base name of the file.
+			if matched, _ := filepath.Match(p.pattern, base); matched {
+				return true
+			}
+			// Also try matching against the full relative path.
+			if matched, _ := filepath.Match(p.pattern, relPath); matched {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 // Analyze runs the full analysis pipeline on the given path.
 func Analyze(root string) (*types.ProjectMetrics, error) {
@@ -218,17 +289,39 @@ func collectFiles(root string) ([]string, error) {
 		extraSkips[d] = true
 	}
 
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	// Load .pulseignore patterns from the root directory
+	ignorePatterns, err := loadPulseignore(root)
+	if err != nil {
+		return nil, fmt.Errorf("reading .pulseignore: %w", err)
+	}
+
+	err = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // skip errors
 		}
+
+		// Compute path relative to root for ignore matching
+		relPath, _ := filepath.Rel(root, path)
 
 		if info.IsDir() {
 			name := info.Name()
 			if skipDirs[name] || extraSkips[name] {
 				return filepath.SkipDir
 			}
+			// Check .pulseignore directory patterns
+			if len(ignorePatterns) > 0 && relPath != "." {
+				if matchesIgnorePattern(relPath, info, ignorePatterns) {
+					return filepath.SkipDir
+				}
+			}
 			return nil
+		}
+
+		// Check .pulseignore file patterns
+		if len(ignorePatterns) > 0 {
+			if matchesIgnorePattern(relPath, info, ignorePatterns) {
+				return nil
+			}
 		}
 
 		ext := filepath.Ext(path)

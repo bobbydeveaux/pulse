@@ -232,6 +232,7 @@ func gateCmd() *cobra.Command {
 		maxDup        float64
 		minMI         float64
 		noColor       bool
+		skipDirs      []string
 	)
 
 	cmd := &cobra.Command{
@@ -248,6 +249,8 @@ func gateCmd() *cobra.Command {
 			if noColor {
 				color.NoColor = true
 			}
+
+			analyzer.ExtraSkipDirs = skipDirs
 
 			pm, err := analyzer.Analyze(path)
 			if err != nil {
@@ -277,6 +280,7 @@ func gateCmd() *cobra.Command {
 	cmd.Flags().Float64Var(&maxDup, "max-duplication", 0, "Maximum duplication percentage (0 = no limit)")
 	cmd.Flags().Float64Var(&minMI, "min-maintainability", 0, "Minimum maintainability index (0 = no limit)")
 	cmd.Flags().BoolVar(&noColor, "no-color", false, "Disable colored output")
+	cmd.Flags().StringSliceVar(&skipDirs, "skip", nil, "Additional directories to skip (comma-separated)")
 	return cmd
 }
 
