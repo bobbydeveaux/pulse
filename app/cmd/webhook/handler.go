@@ -101,6 +101,19 @@ func handleMarketplace(secret []byte) http.HandlerFunc {
 			}
 			return
 		}
+		// GitHub sends a signed `ping` delivery when the webhook is first
+		// configured. The payload has no marketplace `action`, so it would
+		// fall through to the recognisedActions check and return 422,
+		// which makes the Marketplace setup UI flag the endpoint as failed
+		// even though it is reachable and verifying signatures. Acknowledge
+		// ping after signature verification and exit 200.
+		if r.Header.Get("X-GitHub-Event") == "ping" {
+			log.Printf("marketplace: ping acknowledged")
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"ok":true,"event":"ping"}`))
+			return
+		}
 		var event marketplaceEvent
 		if err := json.Unmarshal(body, &event); err != nil {
 			log.Printf("marketplace: parse body: %v", err)

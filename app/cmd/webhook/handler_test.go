@@ -142,6 +142,40 @@ func TestHandlerRejectsOversizeBody(t *testing.T) {
 	}
 }
 
+func TestHandlerAcknowledgesPingEvent(t *testing.T) {
+	// GitHub sends a signed `ping` delivery when configuring the webhook.
+	// The body has no marketplace action, so without explicit handling we
+	// would 422 and the Marketplace setup test would show as failed.
+	body := []byte(`{"zen":"Practicality beats purity.","hook_id":1,"hook":{}}`)
+	req := httptest.NewRequest(http.MethodPost, "/webhook/github-marketplace", bytes.NewReader(body))
+	req.Header.Set("X-Hub-Signature-256", sign([]byte(testSecret), body))
+	req.Header.Set("X-GitHub-Event", "ping")
+	rec := httptest.NewRecorder()
+	handleMarketplace([]byte(testSecret)).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 for ping; body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"event":"ping"`) {
+		t.Errorf("body=%q, want contains event:ping", rec.Body.String())
+	}
+}
+
+func TestHandlerStillRejectsUnsignedPing(t *testing.T) {
+	// Signature check must run before the ping shortcut. An unsigned
+	// `ping` should still 400, not 200.
+	body := []byte(`{"zen":"Anything added dilutes everything else."}`)
+	req := httptest.NewRequest(http.MethodPost, "/webhook/github-marketplace", bytes.NewReader(body))
+	req.Header.Set("X-GitHub-Event", "ping")
+	// Deliberately no X-Hub-Signature-256 header.
+	rec := httptest.NewRecorder()
+	handleMarketplace([]byte(testSecret)).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 for unsigned ping; body=%s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestHandlerToleratesUnknownEventFields(t *testing.T) {
 	// GitHub may add new fields to the payload over time. The minimal-
 	// projection struct must not break on those.
