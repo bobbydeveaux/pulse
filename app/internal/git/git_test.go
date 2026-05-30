@@ -267,9 +267,9 @@ func TestItoa(t *testing.T) {
 	}
 }
 
-func TestLog_SkipsMalformedLines(t *testing.T) {
-	// Use an init repo and rely on the malformed-line filter by faking via
-	// Log on an empty repo (no commits): exec error path.
+func TestLog_EmptyRepo(t *testing.T) {
+	// `git log` on a repo with no commits returns a non-zero exit — we hit
+	// the err branch of Log.
 	dir := t.TempDir()
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git binary not available")
@@ -279,7 +279,6 @@ func TestLog_SkipsMalformedLines(t *testing.T) {
 	if err := cmd.Run(); err != nil {
 		t.Fatal(err)
 	}
-	// `git log` on an empty repo returns non-zero — we hit the err branch
 	_, err := Log(5, dir)
 	if err == nil {
 		t.Error("expected error from git log on empty repo")
