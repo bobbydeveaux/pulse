@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/bobbydeveaux/pulse/internal/analyzer"
 	"github.com/bobbydeveaux/pulse/internal/types"
 )
 
@@ -288,6 +289,7 @@ func TestCheckCmd_Smoke(t *testing.T) {
 	dir := t.TempDir()
 	writeGoFixture(t, dir)
 
+	resetExtraSkipDirs(t)
 	cmd := checkCmd()
 	cmd.SetArgs([]string{"--no-color", "--skip", "vendor", dir})
 	// Sink output so tests don't pollute stdout. cobra's SetOut/SetErr handles
@@ -309,6 +311,7 @@ func TestCheckCmd_RelativePathFromCwd(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.Chdir(origWD) })
 
+	resetExtraSkipDirs(t)
 	cmd := checkCmd()
 	cmd.SetArgs([]string{"--no-color"})
 	silenceStdout(t)
@@ -323,6 +326,7 @@ func TestGateCmd_PassesWhenNoThresholdsSet(t *testing.T) {
 
 	exited := -1
 	swapExitFunc(t, func(code int) { exited = code })
+	resetExtraSkipDirs(t)
 
 	cmd := gateCmd()
 	cmd.SetArgs([]string{"--no-color", dir})
@@ -354,6 +358,7 @@ func Branchy(x int) string {
 
 	exited := -1
 	swapExitFunc(t, func(code int) { exited = code })
+	resetExtraSkipDirs(t)
 
 	cmd := gateCmd()
 	// max-ccn=1 will definitely trip Branchy.
@@ -527,4 +532,13 @@ func swapExitFunc(t *testing.T, fn func(int)) {
 	orig := exitFunc
 	exitFunc = fn
 	t.Cleanup(func() { exitFunc = orig })
+}
+
+// resetExtraSkipDirs snapshots analyzer.ExtraSkipDirs (a package-level
+// global mutated by checkCmd and gateCmd) and restores it on cleanup so
+// tests don't leak state into each other.
+func resetExtraSkipDirs(t *testing.T) {
+	t.Helper()
+	orig := analyzer.ExtraSkipDirs
+	t.Cleanup(func() { analyzer.ExtraSkipDirs = orig })
 }
