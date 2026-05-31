@@ -19,33 +19,68 @@
 package main
 
 import (
+	"errors"
 	"log"
 	"net/http"
 	"os"
 	"time"
 )
 
-func main() {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-	secret := []byte(os.Getenv("GITHUB_WEBHOOK_SECRET"))
-	if len(secret) == 0 {
-		log.Printf("marketplace: GITHUB_WEBHOOK_SECRET is not set — webhook will 500 on every event until configured")
-	}
+// defaultPort is the Cloud Run convention when $PORT is not set.
+const defaultPort = "8080"
 
+// readHeaderTimeout caps how long the server will wait to read request
+// headers. Slow-loris defence; 10s matches Guardian's webhook.
+const readHeaderTimeout = 10 * time.Second
+
+// resolvePort returns env if non-empty, else defaultPort. Extracted so the
+// port-defaulting branch is testable without touching os.Getenv.
+func resolvePort(env string) string {
+	if env == "" {
+		return defaultPort
+	}
+	return env
+}
+
+// newServer builds the fully-wired *http.Server. It does not start it.
+// Extracted so the mux + timeout wiring is testable as a pure construction.
+func newServer(port string, secret []byte) *http.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /webhook/github-marketplace", handleMarketplace(secret))
 	mux.HandleFunc("GET /health", handleHealth)
-
-	server := &http.Server{
+	return &http.Server{
 		Addr:              ":" + port,
 		Handler:           mux,
-		ReadHeaderTimeout: 10 * time.Second,
+		ReadHeaderTimeout: readHeaderTimeout,
+	}
+}
+
+// serve calls srv.ListenAndServe and translates http.ErrServerClosed (the
+// normal shutdown signal) to nil. Any other error is returned unchanged so
+// the caller can decide whether to log.Fatal or recover.
+func serve(srv *http.Server) error {
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	return nil
+}
+
+// logStartup writes the two boot lines (missing-secret warning + the
+// listening notice) to the standard logger. Extracted so the boot-time
+// log statements are testable without invoking main().
+func logStartup(secret []byte, port string) {
+	if len(secret) == 0 {
+		log.Printf("marketplace: GITHUB_WEBHOOK_SECRET is not set — webhook will 500 on every event until configured")
 	}
 	log.Printf("marketplace: listening on :%s", port)
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+}
+
+func main() {
+	port := resolvePort(os.Getenv("PORT"))
+	secret := []byte(os.Getenv("GITHUB_WEBHOOK_SECRET"))
+	srv := newServer(port, secret)
+	logStartup(secret, port)
+	if err := serve(srv); err != nil {
 		log.Fatalf("marketplace: server error: %v", err)
 	}
 }
