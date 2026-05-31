@@ -65,6 +65,40 @@ Go, TypeScript, JavaScript, Python, Java, Rust, C/C++, Ruby, PHP, Kotlin, Swift,
 
 Pulse works alongside [Guardian](https://guardian.stackramp.io) for security scanning. Guardian blocks insecure code; Pulse tracks code quality.
 
+## GitHub Marketplace billing webhook
+
+Pulse ships a stdlib-only HTTP server that receives `marketplace_purchase` events when a customer upgrades, downgrades, or cancels Pulse on the GitHub Marketplace. The binary lives at `app/cmd/webhook/` and is packaged as a distroless image via `Dockerfile.webhook` for Cloud Run (or any container runtime).
+
+### Routes
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `POST` | `/webhook/github-marketplace` | Verify `X-Hub-Signature-256` and log the event |
+| `GET`  | `/health` | Liveness probe — returns `200 {"status":"ok"}` |
+
+### Environment
+
+| Variable | Required | Default | Purpose |
+|----------|----------|---------|---------|
+| `GITHUB_WEBHOOK_SECRET` | yes | — | HMAC-SHA256 shared secret configured in the Marketplace listing. The handler returns `500` on every event until this is set. |
+| `PORT` | no | `8080` | Listen port (Cloud Run convention). |
+
+### Accepted `marketplace_purchase` actions
+
+`purchased`, `cancelled`, `changed`, `pending_change`, and `pending_change_cancelled`. Any other action returns `422` so misconfigurations surface loudly. The body is capped at 1 MiB; signature failures return `400`; malformed JSON returns `400`. GitHub `ping` deliveries are acknowledged with `200` so the handshake completes cleanly.
+
+### Build and run locally
+
+```bash
+docker build -f Dockerfile.webhook -t pulse-webhook .
+
+docker run \
+  -e GITHUB_WEBHOOK_SECRET=replace-me \
+  -e PORT=8080 \
+  -p 8080:8080 \
+  pulse-webhook
+```
+
 ## License
 
 MIT
