@@ -65,15 +65,21 @@ func serve(srv *http.Server) error {
 	return nil
 }
 
-func main() {
-	port := resolvePort(os.Getenv("PORT"))
-	secret := []byte(os.Getenv("GITHUB_WEBHOOK_SECRET"))
+// logStartup writes the two boot lines (missing-secret warning + the
+// listening notice) to the standard logger. Extracted so the boot-time
+// log statements are testable without invoking main().
+func logStartup(secret []byte, port string) {
 	if len(secret) == 0 {
 		log.Printf("marketplace: GITHUB_WEBHOOK_SECRET is not set — webhook will 500 on every event until configured")
 	}
-
-	srv := newServer(port, secret)
 	log.Printf("marketplace: listening on :%s", port)
+}
+
+func main() {
+	port := resolvePort(os.Getenv("PORT"))
+	secret := []byte(os.Getenv("GITHUB_WEBHOOK_SECRET"))
+	srv := newServer(port, secret)
+	logStartup(secret, port)
 	if err := serve(srv); err != nil {
 		log.Fatalf("marketplace: server error: %v", err)
 	}
