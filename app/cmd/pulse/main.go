@@ -15,7 +15,14 @@ import (
 	"github.com/bobbydeveaux/pulse/internal/types"
 )
 
-func main() {
+// exitFunc is the package-level os.Exit hook so tests can intercept exit
+// codes without terminating the test binary. Swap this in tests via t.Cleanup
+// to restore the default after each case.
+var exitFunc = os.Exit
+
+// newRootCmd builds the pulse cobra root with all subcommands wired up.
+// Extracted so tests can exercise it without invoking main().
+func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "pulse",
 		Short: "Code quality & complexity analyzer",
@@ -27,8 +34,12 @@ func main() {
 	rootCmd.AddCommand(diffCmd())
 	rootCmd.AddCommand(gateCmd())
 
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
+	return rootCmd
+}
+
+func main() {
+	if err := newRootCmd().Execute(); err != nil {
+		exitFunc(1)
 	}
 }
 
@@ -269,7 +280,7 @@ func gateCmd() *cobra.Command {
 			report.PrintGate(result)
 
 			if !result.Passed {
-				os.Exit(1)
+				exitFunc(1)
 			}
 			return nil
 		},
