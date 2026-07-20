@@ -24,12 +24,17 @@ if [ -n "${INPUT_MIN_MAINTAINABILITY:-}" ] && [ "${INPUT_MIN_MAINTAINABILITY}" !
 fi
 
 echo "::group::Pulse Quality Gate"
+# `pulse gate` exits non-zero when a gate is breached. Under `set -e` a bare
+# non-zero command aborts the script immediately, which skipped the
+# INPUT_FAIL_ON_GATE handling below entirely — so `fail_on_gate: false` never
+# took effect. Capture the status via `|| ...` (exempt from `set -e`) instead.
+EXIT_CODE=0
 # shellcheck disable=SC2086
-pulse gate ${FLAGS} .
-EXIT_CODE=$?
+pulse gate ${FLAGS} . || EXIT_CODE=$?
 echo "::endgroup::"
 
 if [ "${INPUT_FAIL_ON_GATE:-true}" = "false" ]; then
+  echo "fail_on_gate=false: reporting gate result without failing the job (pulse exit ${EXIT_CODE})."
   exit 0
 fi
 
